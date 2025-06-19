@@ -1,0 +1,648 @@
+package com.example.battlecommand
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import coil.compose.rememberAsyncImagePainter
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
+import androidx.navigation.NavController
+import kotlinx.coroutines.delay
+
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            val navController = rememberNavController()
+            NavHost(navController = navController, startDestination = Screen.MainMenu.route) {
+                composable(Screen.MainMenu.route) { MainMenuScreen(navController) }
+                composable(Screen.Deploy.route) { DeployScreen(navController) }
+                composable(Screen.Fortify.route) { FortifyScreen(
+                    navController as MutableList<MutableList<Cell>>,
+                    onFortify = TODO()
+                ) }
+                composable(Screen.Attack.route) { AttackScreen(navController) }
+                composable(Screen.Result.route) { ResultScreen(navController) }
+            }
+        }
+    }
+
+}
+
+@Composable
+fun DeployScreen(navController: NavController) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("DEPLOY", fontSize=28.sp,color=Color.White)
+        Spacer(modifier=Modifier.height(8.dp))
+        Text(
+            "Click and place ships for best strategy",
+            fontSize = 14.sp,
+            color=Color.LightGray
+        )
+
+        Spacer(modifier= Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement=Arrangement.SpaceEvenly
+        ) {
+            ShipIcon(R.drawable.ship1)
+            ShipIcon(R.drawable.ship2)
+            ShipIcon(R.drawable.ship3)
+        }
+        Spacer(modifier=Modifier.height(16.dp))
+
+        val grid = remember {createEmptyGrid()}
+        GridUI(grid = grid, isPlayer = true, onCellClick = {row, col ->
+            if (grid[row][col].state == CellState.EMPTY) {
+                grid[row][col].state == CellState.SHIP
+                grid[row][col].shipType = 1
+            }
+        })
+
+        Spacer(modifier=Modifier.height(16.dp))
+
+        Row(horizontalArrangement=Arrangement.SpaceEvenly) {
+            Button(
+                onClick = { navController.navigate("fortify")},
+                modifier=Modifier.weight(1f)
+            ){
+                Text("SAVE")
+            }
+            Spacer(modifier=Modifier.width(16.dp))
+            Button(
+                onClick={
+                    grid.forEach{row ->
+                        row.forEach{it.state=CellState.EMPTY}
+                        }
+                        placeSpecificShips(grid)
+                    },
+                    modifier=Modifier.weight(1f),
+                    colors=ButtonDefaults.buttonColors(containerColor=Color.Magenta)
+            ){
+                Text("AUTO")
+            }
+        }
+    }
+}
+
+@Composable
+fun ShipIcon(drawableId: Int) {
+    Image(
+        painter=rememberAsyncImagePainter(
+            ImageRequest.Builder(LocalContext.current)
+                .data(drawableId)
+                .decoderFactory(SvgDecoder.Factory())
+                .build()
+        ),
+        contentDescription=null,
+        modifier=Modifier.size(48.dp)
+    )
+}
+
+@Composable
+fun FortifyScreen(
+    playerGrid: MutableList<MutableList<Cell>>,
+    onFortify: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF1C1C1E))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            "Fortify Screen",
+            color = Color.White,
+            fontSize = 24.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        GridUI(grid = playerGrid, isPlayer = true, onCellClick = { _, _ -> })
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = onFortify,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            Text("Fortify", fontSize = 18.sp)
+        }
+    }
+}
+
+
+
+@Composable
+fun AttackScreen(navController: NavController) {
+    Text("Attack Screen")
+}
+
+@Composable
+fun ResultScreen(navController: NavController) {
+    Text("Result Screen")
+}
+
+@Composable
+fun Help(navController: NavController) {
+    Text("Help Screen")
+}
+
+
+enum class CellState {
+    EMPTY, SHIP, HIT, MISS
+}
+
+data class Cell(
+    val row: Int,
+    val col: Int,
+    var hasShip: Boolean = false,
+    var isHit: Boolean = false,
+    var shipType: Int = 0,
+) {
+    var state by mutableStateOf(CellState.EMPTY)
+}
+
+sealed class Screen(val route: String) {
+    object MainMenu: Screen("main menu")
+    object Deploy: Screen("deploy")
+    object Fortify: Screen("fortify")
+    object Attack: Screen("attack")
+    object Result: Screen("result")
+}
+fun createEmptyGrid(): MutableList<MutableList<Cell>> {
+    return MutableList(6) { row ->
+        MutableList(6) { col ->
+            Cell(row = row, col = col)
+        }
+    }
+}
+
+fun placeSpecificShip(
+    grid: MutableList<MutableList<Cell>>,
+    positions: List<Pair<Int, Int>>,
+    shipType: Int
+) {
+    for ((row, col) in positions) {
+        grid[row][col].state = CellState.SHIP
+        grid[row][col].shipType = shipType
+    }
+}
+
+fun placeSpecificShips(grid: MutableList<MutableList<Cell>>) {
+    placeSpecificShip(grid, listOf(0 to 0, 0 to 1), shipType = 1)
+    placeSpecificShip(grid, listOf(2 to 2, 2 to 3, 2 to 4), shipType = 2)
+    placeSpecificShip(grid, listOf(5 to 5), shipType = 3)
+}
+
+@Composable
+fun GameButton(text: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFF1B263B),
+            contentColor = Color(0xFFEEB902)
+        ),
+        modifier = Modifier
+            .height(40.dp)
+            .widthIn(min = 90.dp),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Text(text = text, fontSize = 14.sp)
+    }
+}
+
+
+@Composable
+fun StartMenuScreen(onPlayClick: () -> Unit, onSettingsClick: () -> Unit, onHelpClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF2E2E2E)),
+                contentAlignment = Alignment.Center
+            ){
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxHeight()
+                ) {
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text(
+                        text = "BATTLESHIPS\nARMADA",
+                        fontSize = 28.sp,
+                        color = Color.White,
+                        lineHeight = 34.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(160.dp)
+                            .background(Color.LightGray, shape = CircleShape)
+                            .border(8.dp, Color.White, shape = CircleShape)
+                            .clickable {onPlayClick() }
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_play_arrow),
+                            contentDescription = "Play",
+                            tint = Color(0xFFEF6C00),
+                            modifier = Modifier.size(80.dp)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        IconButton(onClick = onSettingsClick) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_settings),
+                                contentDescription = "Settings",
+                                tint = Color.Yellow
+                            )
+                        }
+                        IconButton(onClick = onHelpClick) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_help),
+                                contentDescription = "Help",
+                                tint = Color.Yellow
+                            )
+
+                        }
+                    }
+                }
+    }
+}
+
+@Composable
+fun MainMenuScreen(navController: NavController) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF2C2C2C)), // dark grey
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "BATTLESHIPS\nARMADA",
+            color = Color.White,
+            fontSize = 28.sp,
+            lineHeight = 36.sp,
+            modifier = Modifier.padding(bottom = 40.dp),
+        )
+
+        Button(
+            onClick = { navController.navigate(Screen.Deploy.route) },
+            shape = CircleShape,
+            modifier = Modifier.size(120.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+        ) {
+            Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.Red, modifier = Modifier.size(60.dp))
+        }
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            IconButton(onClick = { /* TODO: Show Settings */ }) {
+                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.Yellow, modifier = Modifier.size(32.dp))
+            }
+            //IconButton(onClick = { /* TODO: Show Help */ }) {
+              //  Icon(Icons.Default.Help, contentDescription = "Help", tint = Color.Yellow, modifier = Modifier.size(32.dp))
+            }
+        }
+    }
+//}
+
+@Composable
+fun DarkButton(text: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .height(48.dp)
+            .width(100.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFF333333),
+            contentColor = Color.Cyan
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 6.dp,
+            pressedElevation = 2.dp
+        )
+    ) {
+        Text(text = text, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun FuturisticButton(text: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFF1F1F1F),
+            contentColor = Color.Cyan
+        ),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, Color.Cyan),
+        modifier = Modifier
+            .padding(4.dp)
+            .defaultMinSize(minWidth = 80.dp)
+    ) {
+        Text(
+            text = text,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+
+@Composable
+fun BattleScreen() {
+    val statusMessage = remember { mutableStateOf("Status: Waiting") }
+    val playerGrid = remember { createEmptyGrid().also { placeSpecificShips(it) } }
+    val enemyGrid = remember { createEmptyGrid().also { placeSpecificShips(it) } }
+
+    var currentTurn by remember { mutableStateOf("Player") }
+    val gameInfo = remember { mutableStateOf("Player's Turn: Choose Attack or Fortify") }
+
+    // This effect triggers enemy turn with a delay
+    LaunchedEffect(currentTurn) {
+        if (currentTurn == "Enemy") {
+            delay(1000L)  // 1 second delay
+            enemyTurn(playerGrid, gameInfo)
+            currentTurn = "Player"
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF121212))
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "🛰️ Battle Command",
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Cyan
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Turn: $currentTurn",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (currentTurn == "Player") Color.Green else Color.Red
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text("Your Grid", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color.White)
+        GridUI(grid = playerGrid, isPlayer = true, onCellClick = { _, _ -> })
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text("Enemy Grid", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color.White)
+        GridUI(grid = enemyGrid, isPlayer = false, onCellClick = { row, col ->
+            if (currentTurn != "Player") return@GridUI
+
+            val cell = enemyGrid[row][col]
+            if (cell.state == CellState.HIT || cell.state == CellState.MISS) {
+                gameInfo.value = "Already Attacked!"
+                return@GridUI
+            }
+
+            if (cell.state == CellState.SHIP) {
+                cell.state = CellState.HIT
+                gameInfo.value = "Hit!"
+            } else {
+                cell.state = CellState.MISS
+                gameInfo.value = "Miss!"
+            }
+
+            if (!hasShipsRemaining(enemyGrid)) {
+                gameInfo.value = "🎉 You Win!"
+            } else {
+                currentTurn = "Enemy"
+            }
+        })
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text(gameInfo.value, fontSize = 14.sp, color = Color.Yellow)
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = {
+                statusMessage.value = "Game Started"
+            }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F1F)), shape = RoundedCornerShape(12.dp)) {
+                Text("Start", color = Color.Cyan)
+            }
+
+            Button(onClick = {
+                gameInfo.value = "Tap enemy grid to attack. Use Fortify to reposition ships."
+            }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F1F)), shape = RoundedCornerShape(12.dp)) {
+                Text("Instructions", color = Color.Magenta)
+            }
+
+            Button(onClick = {
+                statusMessage.value = "Status: Reset!"
+                playerGrid.forEach { row -> row.forEach { it.state = CellState.EMPTY } }
+                enemyGrid.forEach { row -> row.forEach { it.state = CellState.EMPTY } }
+                placeSpecificShips(playerGrid)
+                placeSpecificShips(enemyGrid)
+                gameInfo.value = "Grids reset! Ready to battle."
+                currentTurn = "Player"
+            }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F1F)), shape = RoundedCornerShape(12.dp)) {
+                Text("Reset", color = Color.Red)
+            }
+
+            Button(onClick = {
+                val movableShips = playerGrid.flatten().filter { it.state == CellState.SHIP }
+                if (movableShips.isEmpty()) {
+                    gameInfo.value = "No ships to move!"
+                    return@Button
+                }
+                val shipToMove = movableShips.random()
+                val emptyCells = playerGrid.flatten().filter { it.state == CellState.EMPTY }
+                if (emptyCells.isEmpty()) {
+                    gameInfo.value = "No empty space to move!"
+                    return@Button
+                }
+                val targetCell = emptyCells.random()
+                targetCell.state = CellState.SHIP
+                targetCell.shipType = shipToMove.shipType
+                shipToMove.state = CellState.EMPTY
+                shipToMove.shipType = 0
+                gameInfo.value = "Fortified a ship!"
+                currentTurn = "Enemy"
+            }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F1F1F)), shape = RoundedCornerShape(12.dp)) {
+                Text("Fortify", color = Color.Yellow)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(statusMessage.value, fontSize = 14.sp, color = Color.LightGray)
+    }
+}
+
+
+
+
+
+
+@Composable
+fun GridUI(
+    grid: List<MutableList<Cell>>,
+    isPlayer: Boolean,
+    onCellClick: (Int, Int) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .background(Color(0xFF1C1C1E))
+            .padding(8.dp)
+    ) {
+        for (row in 0 until 6) {
+            Row {
+                for (col in 0 until 6) {
+                    val cell = grid[row][col]
+                    val painter = when {
+                        cell.state == CellState.SHIP && isPlayer -> {
+                            val shipRes = when (cell.shipType) {
+                                1 -> R.drawable.ship1
+                                2 -> R.drawable.ship2
+                                3 -> R.drawable.ship3
+                                else -> R.drawable.ship1
+                            }
+
+                            rememberAsyncImagePainter(
+                                ImageRequest.Builder(LocalContext.current)
+                                    .data(shipRes)
+                                    .decoderFactory(SvgDecoder.Factory())
+                                    .build()
+                            )
+                        }
+
+                        cell.state == CellState.HIT -> rememberAsyncImagePainter(
+                            ImageRequest.Builder(LocalContext.current)
+                                .data(R.drawable.cannon)
+                                .decoderFactory(SvgDecoder.Factory())
+                                .build()
+                        )
+                        else -> null
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .padding(2.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .then(
+                                if (cell.state == CellState.SHIP && isPlayer) {
+                                    Modifier.background(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(Color(0xFF00E5FF), Color(0xFF1C1C1E)),
+                                            radius = 60f
+                                        )
+                                    )
+                                } else {
+                                    Modifier.background(
+                                        color = when (cell.state) {
+                                            CellState.EMPTY -> Color(0xFF2C2C2E)
+                                            CellState.HIT -> Color(0xFFD32F2F)
+                                            CellState.MISS -> Color(0xFF616161)
+                                            else -> Color.DarkGray
+                                        }
+                                    )
+                                }
+                            )
+                            .border(1.dp, Color.Black, RoundedCornerShape(4.dp))
+                            .clickable { onCellClick(row, col) }
+                    ) {
+                        if (painter != null) {
+                            Image(
+                                painter = painter,
+                                contentDescription = null,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+
+fun enemyTurn(playerGrid: MutableList<MutableList<Cell>>, gameInfo: MutableState<String>) {
+    var row: Int
+    var col: Int
+    var cell: Cell
+    do {
+        row = (0..5).random()
+        col = (0..5).random()
+        cell = playerGrid[row][col]
+    } while (cell.state == CellState.HIT || cell.state == CellState.MISS)
+
+    if (cell.state == CellState.SHIP ) {
+        cell.state = CellState.HIT
+        if (!hasShipsRemaining(playerGrid)) {
+            gameInfo.value = "Game Over! Enemy Wins!"
+        } else {
+            gameInfo.value = "Enemy Hit at ($row, $col)!"
+        }
+    } else {
+        cell.state = CellState.MISS
+        gameInfo.value = "Enemy Missed ($row, $col). Your Turn!"
+    }
+}
+
+fun hasShipsRemaining(grid: List<List<Cell>>): Boolean {
+    return grid.flatten().any { it.state == CellState.SHIP }
+}
